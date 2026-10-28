@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health
+from app.api import health, resumes
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 
@@ -37,6 +37,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(resumes.router, prefix="/api/v1")
 
     if settings.app_env == "development":
         from app.api import debug  # temporary, see debug.py

@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     app_env: str = "development"
     frontend_origin: str = "http://localhost:3000"
 
+    # Resume upload limits (Milestone 4)
+    max_upload_size_mb: int = 5
+    max_pdf_pages: int = 15
+    max_resume_chars: int = 50_000
+    min_resume_chars: int = 50
+
     # Groq (used from Milestone 7)
     groq_api_key: str | None = None
 

@@ -1,0 +1,23 @@
+Jane Example
+jane.example@example.com | Example City
+
+SUMMARY
+Third-year IT student interested in backend development and applied AI.
+
+EDUCATION
+B.E. Information Technology, Example Institute of Technology, 2022-2026
+
+SKILLS
+Python, FastAPI, SQL, Git, REST APIs, Docker (basic), React (basic)
+
+EXPERIENCE
+Backend Intern, Sample Software Pvt Ltd, May 2025 - Jul 2025
+- Built REST APIs using FastAPI and PostgreSQL for an internal tool.
+- Wrote unit tests with pytest and fixed 20+ reported bugs.
+
+PROJECTS
+Library Manager - Flask and SQLite web app for tracking book loans.
+Resume Ranker - Python script that scores resumes against keywords.
+
+CERTIFICATIONS
+Python for Everybody (Coursera)
