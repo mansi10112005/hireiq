@@ -29,8 +29,11 @@ def safe_display_name(filename: str | None) -> str:
     return name[:100] or "resume"
 
 
-async def read_and_validate_upload(file: UploadFile, settings: Settings) -> ValidatedUpload:
-    display_name = safe_display_name(file.filename)
+def validate_upload_bytes(
+    filename: str | None, data: bytes, settings: Settings
+) -> ValidatedUpload:
+    """Validate extension, size and content of an uploaded file (already read into memory)."""
+    display_name = safe_display_name(filename)
 
     # 1) Extension check
     extension = PurePosixPath(display_name).suffix.lower()
@@ -42,9 +45,8 @@ async def read_and_validate_upload(file: UploadFile, settings: Settings) -> Vali
             code="unsupported_file_type",
         )
 
-    # 2) Size check: read at most limit+1 bytes, so we notice if it is too big
+    # 2) Size check
     max_bytes = settings.max_upload_size_mb * 1024 * 1024
-    data = await file.read(max_bytes + 1)
     if len(data) > max_bytes:
         raise AppError(
             f"The file is too large. The maximum size is {settings.max_upload_size_mb} MB.",
@@ -63,3 +65,10 @@ async def read_and_validate_upload(file: UploadFile, settings: Settings) -> Vali
         )
 
     return ValidatedUpload(filename=display_name, file_type=file_type, data=data)
+
+
+async def read_and_validate_upload(file: UploadFile, settings: Settings) -> ValidatedUpload:
+    """Read at most limit+1 bytes (so oversize files are noticed), then validate."""
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    data = await file.read(max_bytes + 1)
+    return validate_upload_bytes(file.filename, data, settings)
