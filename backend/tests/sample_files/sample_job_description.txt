@@ -1,0 +1,20 @@
+Backend Developer (Python)
+
+About us
+Example Tech builds internal tools for logistics companies.
+
+Responsibilities
+- Design and build REST APIs using FastAPI.
+- Write unit tests and maintain CI pipelines.
+- Collaborate with the frontend team on API contracts.
+
+Requirements
+- 2+ years of experience in backend development.
+- Strong Python and SQL skills.
+- Experience with Git and REST API design.
+- Familiarity with PostgreSQL.
+
+Nice to have
+- Docker and Kubernetes.
+- Experience with AWS.
+- Knowledge of machine learning basics.
