@@ -11,7 +11,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 def _is_real_value(value: str | None) -> bool:
     """True if a secret looks filled in (not empty and not a placeholder)."""
-    return bool(value) and not value.startswith("your_")
+    return bool(value) and not value.startswith("your_") and not value.startswith("paste_")
 
 
 class Settings(BaseSettings):
@@ -35,8 +35,16 @@ class Settings(BaseSettings):
     max_resume_chars: int = 50_000
     min_resume_chars: int = 50
 
-    # Groq (used from Milestone 7)
+    # Groq AI (Milestone 7)
     groq_api_key: str | None = None
+    llm_enabled: bool = True
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_reasoning_effort: str | None = "low"
+    groq_strict_schema: bool = False
+    llm_timeout_seconds: float = 60.0
+    llm_max_retries: int = 3
+    llm_max_resume_chars: int = 12_000  # how much resume text we send to the AI
+    llm_max_job_chars: int = 6_000  # how much job text we send to the AI
 
     # MongoDB (used from Milestone 9)
     mongodb_uri: str = "mongodb://localhost:27017"

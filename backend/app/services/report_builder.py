@@ -1,6 +1,7 @@
 """Node 9 logic: assemble the final report. (Scoring and storage are placeholders for now.)"""
 
 from app.schemas.analysis import (
+    AiUsage,
     AnalysisReport,
     CandidateSummary,
     EvaluationResult,
@@ -12,11 +13,11 @@ from app.schemas.job import ParsedJobDescription
 from app.schemas.resume import ParsedResume
 
 LIMITATIONS = [
-    "Parsing is rule-based: only skills in HireIQ's skill dictionary are detected, so other skills may be missed.",
+    "Skills are found with a built-in dictionary and, when AI is enabled, AI extraction whose quotes are verified against the text. Skills can still be missed.",
     "'Unverified' means the resume gives no evidence of a skill. It does not prove the candidate lacks it.",
     "Years of experience are reported only when the resume states them explicitly.",
     "No match score is calculated yet, and HireIQ never ranks or rejects candidates automatically.",
-    "Any AI-generated content added later will be labelled as such and must be validated by a human.",
+    "AI-written statements (origin 'ai') are only checked for a supporting quote in the resume. They can still be wrong or misleading and must be reviewed by a human. HireIQ reduces, but cannot eliminate, AI hallucinations and prompt-injection risk.",
 ]
 
 
@@ -53,6 +54,9 @@ def build_report(
     web_requested: bool,
     warnings: list[str],
     completed_nodes: list[str],
+    llm_model: str | None,
+    ai_nodes_used: list[str],
+    ai_fallbacks: list[str],
 ) -> AnalysisReport:
     all_warnings = list(warnings) + resume.warnings + job.warnings
 
@@ -88,6 +92,13 @@ def build_report(
         ],
         interview_questions=build_interview_questions(skill_matches.matches),
         web_intelligence=web,
+        ai_usage=AiUsage(
+            llm_configured=llm_model is not None,
+            provider="groq" if llm_model else None,
+            model=llm_model,
+            nodes_using_ai=list(ai_nodes_used),
+            nodes_with_fallback=list(ai_fallbacks),
+        ),
         warnings=list(dict.fromkeys(all_warnings)),  # remove duplicates, keep order
         limitations=LIMITATIONS,
         pipeline=[*completed_nodes, "score_and_store"],

@@ -40,3 +40,5 @@ class AnalysisState(TypedDict, total=False):
     # ----- Lists that ACCUMULATE (operator.add joins the lists instead of overwriting) -----
     warnings: Annotated[list[str], operator.add]
     completed_nodes: Annotated[list[str], operator.add]
+    ai_nodes_used: Annotated[list[str], operator.add]
+    ai_fallbacks: Annotated[list[str], operator.add]

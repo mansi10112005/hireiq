@@ -1,4 +1,4 @@
-"""Data shapes produced by the analysis workflow (Milestone 6)."""
+"""Data shapes produced by the analysis workflow."""
 
 from typing import Literal
 
@@ -30,6 +30,7 @@ class RelevantEntry(BaseModel):
     heading: str
     matched_skills: list[str]
     evidence: Evidence
+    explanation: str | None = Field(None, description="One-sentence AI explanation, if AI was used")
 
 
 class ExperienceCheck(BaseModel):
@@ -71,6 +72,23 @@ class WebIntelligenceResult(BaseModel):
     findings: list[str] = Field(default_factory=list)
 
 
+class AiUsage(BaseModel):
+    """Which parts of the report involved an AI model."""
+
+    llm_configured: bool
+    provider: str | None = None
+    model: str | None = None
+    nodes_using_ai: list[str] = Field(default_factory=list)
+    nodes_with_fallback: list[str] = Field(
+        default_factory=list, description="AI was configured but failed; rule-based result used"
+    )
+    note: str = (
+        "AI-written statements are labelled origin='ai'. Their supporting quotes were checked "
+        "against the resume text, but the statements can still be wrong or misleading. "
+        "A human must review them."
+    )
+
+
 class ScoreSection(BaseModel):
     status: Literal["not_implemented"] = "not_implemented"
     value: int | None = None
@@ -88,7 +106,7 @@ class StorageSection(BaseModel):
 class AnalysisReport(BaseModel):
     analysis_id: str
     created_at: str
-    workflow_version: str = "milestone-6-mock"
+    workflow_version: str = "milestone-7-ai"
     job_title: str | None = None
     candidate_name: str | None = None
 
@@ -104,6 +122,7 @@ class AnalysisReport(BaseModel):
     interview_questions: list[str] = Field(default_factory=list)
 
     web_intelligence: WebIntelligenceResult
+    ai_usage: AiUsage
     score: ScoreSection = Field(default_factory=ScoreSection)
     storage: StorageSection = Field(default_factory=StorageSection)
 

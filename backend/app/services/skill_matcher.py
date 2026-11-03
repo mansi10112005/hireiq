@@ -12,11 +12,11 @@ from app.schemas.resume import ParsedResume
 
 
 def match_skills(resume: ParsedResume, job: ParsedJobDescription) -> SkillMatchResult:
-    resume_skills = {skill.name: skill for skill in resume.skills}
+    resume_skills = {skill.name.lower(): skill for skill in resume.skills}
     matches: list[SkillMatch] = []
 
     for job_skill in (*job.required_skills, *job.preferred_skills, *job.other_mentioned_skills):
-        skill = resume_skills.get(job_skill.name)
+        skill = resume_skills.get(job_skill.name.lower())
         if skill is None:
             status = "unverified"
             evidence = []
