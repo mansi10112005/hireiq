@@ -1,4 +1,4 @@
-"""Node 9 logic: assemble the final report. (Scoring and storage are placeholders for now.)"""
+"""Node 9 logic: assemble the final report. (Saving to the database arrives in Milestone 9.)"""
 
 from app.schemas.analysis import (
     AiUsage,
@@ -11,12 +11,13 @@ from app.schemas.analysis import (
 )
 from app.schemas.job import ParsedJobDescription
 from app.schemas.resume import ParsedResume
+from app.schemas.scoring import ScoreSection
 
 LIMITATIONS = [
     "Skills are found with a built-in dictionary and, when AI is enabled, AI extraction whose quotes are verified against the text. Skills can still be missed.",
     "'Unverified' means the resume gives no evidence of a skill. It does not prove the candidate lacks it.",
-    "Years of experience are reported only when the resume states them explicitly.",
-    "No match score is calculated yet, and HireIQ never ranks or rejects candidates automatically.",
+    "Years of experience count only when the resume states them explicitly. Education is not scored yet.",
+    "The match score is a transparent, rule-based screening aid. It is not a hiring decision, and HireIQ never ranks, rejects or shortlists candidates automatically.",
     "AI-written statements (origin 'ai') are only checked for a supporting quote in the resume. They can still be wrong or misleading and must be reviewed by a human. HireIQ reduces, but cannot eliminate, AI hallucinations and prompt-injection risk.",
 ]
 
@@ -50,6 +51,7 @@ def build_report(
     summary: CandidateSummary,
     evaluation: EvaluationResult,
     skill_matches: SkillMatchResult,
+    score: ScoreSection,
     web: WebIntelligenceResult | None,
     web_requested: bool,
     warnings: list[str],
@@ -91,6 +93,7 @@ def build_report(
             if m.importance == "required" and m.status == "unverified"
         ],
         interview_questions=build_interview_questions(skill_matches.matches),
+        score=score,
         web_intelligence=web,
         ai_usage=AiUsage(
             llm_configured=llm_model is not None,

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.schemas.evidence import Evidence
 from app.schemas.job import ParsedJobDescription
 from app.schemas.resume import ParsedResume
+from app.schemas.scoring import ScoreSection
 
 
 class SummaryStatement(BaseModel):
@@ -59,9 +60,15 @@ class SkillMatch(BaseModel):
     note: str
 
 
+class EvidenceValidation(BaseModel):
+    checked: int = 0
+    rejected: int = Field(0, description="Evidence not found in the source text, so not counted")
+
+
 class SkillMatchResult(BaseModel):
     method: str = "basic_v0"
     matches: list[SkillMatch] = Field(default_factory=list)
+    validation: EvidenceValidation = Field(default_factory=EvidenceValidation)
 
 
 class WebIntelligenceResult(BaseModel):
@@ -89,15 +96,6 @@ class AiUsage(BaseModel):
     )
 
 
-class ScoreSection(BaseModel):
-    status: Literal["not_implemented"] = "not_implemented"
-    value: int | None = None
-    note: str = (
-        "Deterministic scoring is added in Milestone 8. "
-        "HireIQ does not rank or reject candidates automatically."
-    )
-
-
 class StorageSection(BaseModel):
     stored: bool = False
     note: str = "Saving reports to the database is added in Milestone 9."
@@ -106,7 +104,7 @@ class StorageSection(BaseModel):
 class AnalysisReport(BaseModel):
     analysis_id: str
     created_at: str
-    workflow_version: str = "milestone-7-ai"
+    workflow_version: str = "milestone-8-scoring"
     job_title: str | None = None
     candidate_name: str | None = None
 
@@ -121,9 +119,9 @@ class AnalysisReport(BaseModel):
     )
     interview_questions: list[str] = Field(default_factory=list)
 
+    score: ScoreSection
     web_intelligence: WebIntelligenceResult
     ai_usage: AiUsage
-    score: ScoreSection = Field(default_factory=ScoreSection)
     storage: StorageSection = Field(default_factory=StorageSection)
 
     warnings: list[str] = Field(default_factory=list)

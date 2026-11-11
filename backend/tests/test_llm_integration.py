@@ -275,4 +275,5 @@ def test_prompt_injection_text_is_flagged_and_does_not_change_the_result():
     report = build_workflow().invoke(make_state("injection_resume.txt"))["report"]
 
     assert any("instructions to an AI" in warning for warning in report.warnings)
-    assert report.score.value is None
+    # The injected line has no effect: this is the same score as the same resume without it.
+    assert report.score.value == 67

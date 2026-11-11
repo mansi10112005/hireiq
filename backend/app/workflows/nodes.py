@@ -18,6 +18,7 @@ from typing import Any, Callable
 from app.core.config import get_settings
 from app.schemas.analysis import WebIntelligenceResult
 from app.services.evaluator import evaluate_candidate
+from app.services.evidence_validation import validate_match_evidence
 from app.services.injection_check import injection_warning, looks_like_prompt_injection
 from app.services.job_parser import parse_job_description
 from app.services.llm_client import LLMUnavailableError, get_llm_client
@@ -27,6 +28,8 @@ from app.services.llm_resume import enhance_resume
 from app.services.llm_summary import summarize_with_llm
 from app.services.report_builder import build_report
 from app.services.resume_parser import parse_resume
+from app.services.scoring import calculate_score
+from app.services.scoring_config import default_scoring_config
 from app.services.skill_matcher import match_skills
 from app.services.summary_builder import build_candidate_summary
 from app.services.text_extraction import extract_text, normalize_text
@@ -185,10 +188,17 @@ def ai_evaluation_node(state: AnalysisState) -> dict:
     return {"evaluation": evaluation, **extra}
 
 
-# 7) Skills Matching (BASIC and deterministic; Milestone 8 improves it)
-@node_step("skills_matching", requires=("parsed_resume", "parsed_job"))
+# 7) Skills Matching: deterministic matching, then every piece of evidence is VERIFIED
+@node_step(
+    "skills_matching",
+    requires=("parsed_resume", "parsed_job", "resume_text", "job_description"),
+)
 def skills_matching_node(state: AnalysisState) -> dict:
-    return {"skill_matches": match_skills(state["parsed_resume"], state["parsed_job"])}
+    matches = match_skills(state["parsed_resume"], state["parsed_job"])
+    validated, notes = validate_match_evidence(
+        matches, state["resume_text"], normalize_text(state["job_description"])
+    )
+    return {"skill_matches": validated, "warnings": notes}
 
 
 # Router for the conditional edge: is web research allowed AND consented to?
@@ -210,10 +220,14 @@ def web_intelligence_node(state: AnalysisState) -> dict:
     }
 
 
-# 9) Score Decision and Storage (score and storage are placeholders for now)
+# 9) Score Decision and Storage: the score is calculated here; saving arrives in Milestone 9
 @node_step("score_and_store", requires=("parsed_resume", "parsed_job", "skill_matches"))
 def score_and_store_node(state: AnalysisState) -> dict:
     llm = get_llm_client()
+    config = state.get("scoring_config") or default_scoring_config(get_settings())
+    score = calculate_score(
+        state["parsed_resume"], state["parsed_job"], state["skill_matches"], config
+    )
     report = build_report(
         analysis_id=state["analysis_id"],
         created_at=state["created_at"],
@@ -223,6 +237,7 @@ def score_and_store_node(state: AnalysisState) -> dict:
         summary=state["summary"],
         evaluation=state["evaluation"],
         skill_matches=state["skill_matches"],
+        score=score,
         web=state.get("web_result"),
         web_requested=bool(state.get("enable_web_research")),
         warnings=state.get("warnings", []),

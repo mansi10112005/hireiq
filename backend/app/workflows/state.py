@@ -12,6 +12,7 @@ from app.schemas.analysis import (
 )
 from app.schemas.job import ParsedJobDescription
 from app.schemas.resume import ParsedResume
+from app.schemas.scoring import ScoringConfig
 
 
 class AnalysisState(TypedDict, total=False):
@@ -22,6 +23,7 @@ class AnalysisState(TypedDict, total=False):
     job_description: str
     enable_web_research: bool
     web_research_consent: bool
+    scoring_config: ScoringConfig  # optional; defaults come from settings
 
     # ----- Added by nodes -----
     analysis_id: str

@@ -8,12 +8,15 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import Settings, get_settings
 from app.schemas.analysis import AnalysisReport
 from app.schemas.common import ErrorResponse
+from app.services.scoring_config import build_scoring_config
 from app.workflows.graph import get_workflow
 from app.workflows.state import AnalysisState
 
 logger = logging.getLogger("hireiq")
 
 router = APIRouter(prefix="/analyses", tags=["Analyses"])
+
+_WEIGHT_HELP = "Optional. Relative weight (0-100); weights are scaled to add up to 100."
 
 
 @router.post(
@@ -34,9 +37,26 @@ async def create_analysis(
     web_research_consent: bool = Form(
         False, description="Must be true to confirm lawful basis/consent for web research"
     ),
+    weight_required_skills: float | None = Form(None, ge=0, le=100, description=_WEIGHT_HELP),
+    weight_preferred_skills: float | None = Form(None, ge=0, le=100, description=_WEIGHT_HELP),
+    weight_experience: float | None = Form(None, ge=0, le=100, description=_WEIGHT_HELP),
+    weight_projects_qualifications: float | None = Form(
+        None, ge=0, le=100, description=_WEIGHT_HELP
+    ),
     settings: Settings = Depends(get_settings),
     workflow=Depends(get_workflow),
 ) -> AnalysisReport:
+    # Validate the scoring weights FIRST, so a bad request costs nothing (no AI calls).
+    scoring_config = build_scoring_config(
+        settings,
+        {
+            "required_skills": weight_required_skills,
+            "preferred_skills": weight_preferred_skills,
+            "experience": weight_experience,
+            "projects_qualifications": weight_projects_qualifications,
+        },
+    )
+
     # Read at most limit+1 bytes; node 1 of the workflow does the real validation.
     max_bytes = settings.max_upload_size_mb * 1024 * 1024
     data = await file.read(max_bytes + 1)
@@ -48,6 +68,7 @@ async def create_analysis(
         "job_description": job_description,
         "enable_web_research": enable_web_research,
         "web_research_consent": web_research_consent,
+        "scoring_config": scoring_config,
         "warnings": [],
         "completed_nodes": [],
     }
@@ -58,9 +79,10 @@ async def create_analysis(
 
     # Log identifiers and counts only, never resume text or personal data.
     logger.info(
-        "Analysis completed: id=%s nodes=%d required_skills=%d",
+        "Analysis completed: id=%s nodes=%d required_skills=%d score=%s",
         report.analysis_id,
         len(report.pipeline),
         len(report.job.required_skills),
+        report.score.value,
     )
     return report

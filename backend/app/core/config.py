@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     llm_max_resume_chars: int = 12_000  # how much resume text we send to the AI
     llm_max_job_chars: int = 6_000  # how much job text we send to the AI
 
+    # Scoring (Milestone 8): weights are relative and are scaled to add up to 100
+    score_weight_required_skills: float = 50
+    score_weight_preferred_skills: float = 15
+    score_weight_experience: float = 20
+    score_weight_projects_qualifications: float = 15
+    score_partial_credit: float = 0.5
+    score_entries_for_full_credit: int = 2
+
     # MongoDB (used from Milestone 9)
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "hireiq"

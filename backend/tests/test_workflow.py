@@ -43,7 +43,8 @@ def test_full_workflow_without_web_research():
 
     assert report.pipeline == PIPELINE_WITHOUT_WEB
     assert report.candidate_name == "Jane Example"
-    assert report.score.value is None  # scoring is not implemented yet
+    assert report.score.status == "calculated"
+    assert report.score.value == 67  # worked out by hand in the Milestone 8 lesson
     assert report.storage.stored is False
     assert report.web_intelligence.status == "not_requested"
 
