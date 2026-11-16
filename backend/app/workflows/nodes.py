@@ -4,7 +4,7 @@ Rules for every node:
   - it receives the shared state
   - it returns ONLY the keys it adds or changes
   - fatal problems raise AppError; non-fatal ones go into "warnings"
-  - AI problems NEVER stop the workflow: the node falls back to the rule-based result
+  - AI and storage problems NEVER stop the workflow
   - it never logs resume text
 """
 
@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from app.core.config import get_settings
-from app.schemas.analysis import WebIntelligenceResult
+from app.schemas.analysis import StorageSection, WebIntelligenceResult
 from app.services.evaluator import evaluate_candidate
 from app.services.evidence_validation import validate_match_evidence
 from app.services.injection_check import injection_warning, looks_like_prompt_injection
@@ -26,7 +26,9 @@ from app.services.llm_evaluation import evaluate_with_llm
 from app.services.llm_job import enhance_job
 from app.services.llm_resume import enhance_resume
 from app.services.llm_summary import summarize_with_llm
+from app.services.persistence import persist_report
 from app.services.report_builder import build_report
+from app.services.repository import get_repository
 from app.services.resume_parser import parse_resume
 from app.services.scoring import calculate_score
 from app.services.scoring_config import default_scoring_config
@@ -139,10 +141,22 @@ def cv_parsing_node(state: AnalysisState) -> dict:
     return {"parsed_resume": parsed, **extra}
 
 
-# 4) Job Description Skill Extraction: rule-based baseline, enhanced by the AI when available
+# 4) Job Description Skill Extraction: reuse saved requirements, or parse (rules + AI)
 @node_step("jd_skill_extraction", requires=("job_description",))
 def jd_skill_extraction_node(state: AnalysisState) -> dict:
     job_text = normalize_text(state["job_description"])
+    warnings: list[str] = []
+    if looks_like_prompt_injection(job_text):
+        warnings.append(injection_warning("job description"))
+
+    reused = state.get("parsed_job")
+    if reused is not None:  # saved earlier: same criteria for every candidate, no AI cost
+        warnings.append(
+            "The job requirements were reused from a saved job description, so every candidate "
+            "is scored against the same criteria."
+        )
+        return {"parsed_job": reused, "warnings": warnings}
+
     base = parse_job_description(state["job_description"], state.get("job_title"))
     llm = get_llm_client()
     parsed, extra = _run_ai_step(
@@ -151,9 +165,7 @@ def jd_skill_extraction_node(state: AnalysisState) -> dict:
         lambda: enhance_job(llm, job_text, base, get_settings().llm_max_job_chars),
         lambda: base,
     )
-    warnings = list(extra.pop("warnings", []))
-    if looks_like_prompt_injection(job_text):
-        warnings.append(injection_warning("job description"))
+    warnings = list(extra.pop("warnings", [])) + warnings
     return {"parsed_job": parsed, "warnings": warnings, **extra}
 
 
@@ -220,8 +232,11 @@ def web_intelligence_node(state: AnalysisState) -> dict:
     }
 
 
-# 9) Score Decision and Storage: the score is calculated here; saving arrives in Milestone 9
-@node_step("score_and_store", requires=("parsed_resume", "parsed_job", "skill_matches"))
+# 9) Score Decision and Storage: calculate the score, assemble the report, save it
+@node_step(
+    "score_and_store",
+    requires=("parsed_resume", "parsed_job", "skill_matches", "job_description"),
+)
 def score_and_store_node(state: AnalysisState) -> dict:
     llm = get_llm_client()
     config = state.get("scoring_config") or default_scoring_config(get_settings())
@@ -245,5 +260,28 @@ def score_and_store_node(state: AnalysisState) -> dict:
         llm_model=llm.model_name if llm else None,
         ai_nodes_used=state.get("ai_nodes_used", []),
         ai_fallbacks=state.get("ai_fallbacks", []),
+    )
+
+    # Saving: a storage problem must never destroy a finished analysis.
+    if state.get("save_result", True):
+        storage, notes = persist_report(
+            get_repository(),
+            report,
+            job_title=state.get("job_title"),
+            job_text=normalize_text(state["job_description"]),
+            web_requested=bool(state.get("enable_web_research")),
+            web_consented=bool(state.get("web_research_consent")),
+        )
+    else:
+        storage = StorageSection(
+            stored=False, note=state.get("storage_note") or "Saving was not requested."
+        )
+        notes = []
+
+    report = report.model_copy(
+        update={
+            "storage": storage,
+            "warnings": list(dict.fromkeys([*report.warnings, *notes])),
+        }
     )
     return {"report": report}

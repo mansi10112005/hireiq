@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     score_partial_credit: float = 0.5
     score_entries_for_full_credit: int = 2
 
+    # Storage (Milestone 9)
+    storage_enabled: bool = True
+    mongodb_timeout_ms: int = 3000  # how long to wait for the database before giving up
+    retention_days: int = 0  # 0 = keep until deleted; N = records expire N days after the last analysis
+
     # MongoDB (used from Milestone 9)
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "hireiq"

@@ -25,6 +25,9 @@ class AnalysisState(TypedDict, total=False):
     web_research_consent: bool
     scoring_config: ScoringConfig  # optional; defaults come from settings
 
+    save_result: bool  # False = do not store this analysis
+    storage_note: str  # why saving was skipped (set by the API)
+
     # ----- Added by nodes -----
     analysis_id: str
     created_at: str

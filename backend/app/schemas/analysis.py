@@ -98,8 +98,9 @@ class AiUsage(BaseModel):
 
 class StorageSection(BaseModel):
     stored: bool = False
-    note: str = "Saving reports to the database is added in Milestone 9."
-
+    candidate_id: str | None = None
+    job_id: str | None = None
+    note: str = "Not saved."
 
 class AnalysisReport(BaseModel):
     analysis_id: str
