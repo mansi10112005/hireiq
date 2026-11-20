@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Button } from "./Button";
 import { AlertIcon, InboxIcon } from "./icons";
 
 export function EmptyState({
@@ -26,11 +25,11 @@ export function EmptyState({
 export function ErrorState({
   title,
   message,
-  onRetry,
+  action,
 }: {
   title: string;
   message: string;
-  onRetry?: () => void;
+  action?: ReactNode;
 }) {
   return (
     <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-6">
@@ -39,11 +38,7 @@ export function ErrorState({
         <div>
           <h2 className="text-base font-semibold text-red-900">{title}</h2>
           <p className="mt-1 text-sm text-red-800">{message}</p>
-          {onRetry && (
-            <Button variant="secondary" className="mt-4" onClick={onRetry}>
-              Try again
-            </Button>
-          )}
+          {action && <div className="mt-4">{action}</div>}
         </div>
       </div>
     </div>

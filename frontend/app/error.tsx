@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/states";
 
 export default function ErrorPage({
@@ -11,12 +12,16 @@ export default function ErrorPage({
 }) {
   return (
     <ErrorState
-      title="We couldn't load this page"
+      title="Something went wrong"
       message={
         error.message ||
-        "The server could not be reached. Check that the backend is running and try again."
+        "An unexpected problem occurred. Check that the backend is running and try again."
       }
-      onRetry={reset}
+      action={
+        <Button variant="secondary" onClick={reset}>
+          Try again
+        </Button>
+      }
     />
   );
 }

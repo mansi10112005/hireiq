@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import {
   Briefcase,
   FileText,
@@ -25,9 +25,16 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, ready: true },
   { href: "/analyze", label: "Analyze Resume", icon: FileText, ready: true },
   { href: "/jobs", label: "Job Descriptions", icon: Briefcase, ready: false },
-  { href: "/candidates", label: "Candidate Results", icon: Users, ready: false },
+  { href: "/results", label: "Candidate Results", icon: Users, ready: true },
   { href: "/settings", label: "Settings", icon: Settings, ready: false },
 ];
+
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return (
+    pathname.startsWith(href) || (href === "/results" && pathname.startsWith("/analyses"))
+  );
+}
 
 function Brand() {
   return (
@@ -40,12 +47,13 @@ function Brand() {
   );
 }
 
-function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+/** Pure display: it does NOT read the URL. An empty pathname means "not known yet". */
+function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
     <nav aria-label="Main navigation" className="flex-1 space-y-1 px-3 py-2">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
-        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        const active = isActive(pathname, item.href);
 
         if (!item.ready) {
           return (
@@ -82,16 +90,30 @@ function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
   );
 }
 
+/** The ONLY component that reads the URL. */
+function ActiveNavLinks({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+  return <NavLinks pathname={pathname} onNavigate={onNavigate} />;
+}
+
+/** Shows the links immediately; the active highlight streams in once the URL is known. */
+function NavList({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <Suspense fallback={<NavLinks pathname="" onNavigate={onNavigate} />}>
+      <ActiveNavLinks onNavigate={onNavigate} />
+    </Suspense>
+  );
+}
+
 function SidebarFooter() {
   return (
     <p className="border-t border-slate-100 px-5 py-4 text-xs text-slate-500">
-      Demo data. The live backend connection arrives in Milestone 11.
+      Scores are screening aids, not hiring decisions.
     </p>
   );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -106,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
         <Brand />
-        <NavList pathname={pathname} />
+        <NavList />
         <SidebarFooter />
       </aside>
 
@@ -149,7 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            <NavList pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+            <NavList onNavigate={() => setMenuOpen(false)} />
             <SidebarFooter />
           </aside>
         </div>

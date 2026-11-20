@@ -1,12 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { AlertIcon, Spinner } from "@/components/ui/icons";
 import { Card, CardHeader } from "@/components/ui/primitives";
-import { submitAnalysis } from "@/lib/data";
+import { ReportView } from "@/components/report/ReportView";
+import { submitAnalysis } from "@/lib/analyze";
 import { friendlyError } from "@/lib/errors";
-import type { AnalysisPreview, JobMode, JobSummary, WeightKey } from "@/lib/types";
+import type { AnalysisReport, JobMode, JobSummary, WeightKey } from "@/lib/types";
 import {
   DEFAULT_WEIGHTS,
   JOB_MAX_CHARS,
@@ -16,8 +18,7 @@ import {
   validateWeights,
 } from "@/lib/validation";
 import { FileDropzone } from "./FileDropzone";
-import { ProgressSteps } from "./ProgressSteps";
-import { ResultPreview } from "./ResultPreview";
+import { WaitingPanel } from "./WaitingPanel";
 import { WeightsEditor } from "./WeightsEditor";
 
 type Status = "idle" | "running" | "done" | "error";
@@ -29,12 +30,18 @@ interface FormErrors {
   weights?: string;
 }
 
-const SHOW_DEV_TOOLS = process.env.NODE_ENV !== "production";
-
 const INPUT_CLASSES =
   "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600";
 
-export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
+export function AnalyzeForm({
+  jobs,
+  jobsUnavailable,
+}: {
+  jobs: JobSummary[];
+  jobsUnavailable: string | null;
+}) {
+  const router = useRouter();
+
   const [file, setFile] = useState<File | null>(null);
   const [jobMode, setJobMode] = useState<JobMode>("paste");
   const [jobDescription, setJobDescription] = useState("");
@@ -44,12 +51,10 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
   const [enableWeb, setEnableWeb] = useState(false);
   const [consent, setConsent] = useState(false);
   const [weights, setWeights] = useState<Record<WeightKey, string>>({ ...DEFAULT_WEIGHTS });
-  const [simulateError, setSimulateError] = useState(false);
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<Status>("idle");
-  const [step, setStep] = useState(-1);
-  const [result, setResult] = useState<AnalysisPreview | null>(null);
+  const [result, setResult] = useState<AnalysisReport | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
 
@@ -97,26 +102,26 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
     }
 
     setStatus("running");
-    setStep(0);
     setResult(null);
 
     try {
-      const preview = await submitAnalysis(
-        {
-          file,
-          jobMode,
-          jobDescription,
-          jobId,
-          jobTitle,
-          saveResult,
-          enableWebResearch: enableWeb,
-          webResearchConsent: consent,
-          weights: toNumericWeights(weights),
-          simulateError,
-        },
-        setStep,
-      );
-      setResult(preview);
+      const report = await submitAnalysis({
+        file,
+        jobMode,
+        jobDescription,
+        jobId,
+        jobTitle,
+        saveResult,
+        enableWebResearch: enableWeb,
+        webResearchConsent: consent,
+        weights: toNumericWeights(weights),
+      });
+
+      if (report.storage.stored) {
+        router.push(`/analyses/${report.analysis_id}`); // saved: open the permanent report page
+        return;
+      }
+      setResult(report); // not saved: show it here, because it cannot be loaded again later
       setStatus("done");
     } catch (error) {
       setServerError(friendlyError(error));
@@ -135,18 +140,22 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
     setErrors({});
     setServerError(null);
     setResult(null);
-    setStep(-1);
     setStatus("idle");
   }
 
   if (status === "done" && result) {
-    return <ResultPreview result={result} onReset={reset} />;
+    return (
+      <div className="space-y-6">
+        <ReportView report={result} />
+        <Button onClick={reset}>Analyze another resume</Button>
+      </div>
+    );
   }
 
   const errorList = Object.values(errors).filter(Boolean);
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="max-w-3xl space-y-6">
       {errorList.length > 0 && (
         <div
           ref={summaryRef}
@@ -164,7 +173,10 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
       )}
 
       {serverError && (
-        <div role="alert" className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+        >
           <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
           <div>
             <p className="font-medium">The analysis could not be completed</p>
@@ -187,6 +199,12 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
         <Card>
           <CardHeader title="2. Job description" />
           <div className="space-y-4 px-5 py-5">
+            {jobsUnavailable && (
+              <p role="note" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Saved jobs are unavailable: {jobsUnavailable} You can still paste a job description.
+              </p>
+            )}
+
             <fieldset>
               <legend className="text-sm font-medium text-slate-800">Where does the job come from?</legend>
               <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-800">
@@ -243,7 +261,8 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
                   />
                   <p id="job-description-count" className="mt-1 text-xs text-slate-600">
                     {jobLength.toLocaleString("en-US")} / {JOB_MAX_CHARS.toLocaleString("en-US")} characters.
-                    Headings such as &quot;Requirements&quot; and &quot;Nice to have&quot; help HireIQ tell required skills from preferred ones.
+                    Headings such as &quot;Requirements&quot; and &quot;Nice to have&quot; help HireIQ
+                    tell required skills from preferred ones.
                   </p>
                 </div>
               </>
@@ -287,8 +306,8 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
               <span>
                 Save this analysis
                 <span className="block text-xs text-slate-600">
-                  Stores the parsed findings, name and email. Not stored: the original file, the
-                  full resume text, phone number and links.
+                  Stores the parsed findings, name and email. Not stored: the original file, the full
+                  resume text, phone number and links.
                 </span>
               </span>
             </label>
@@ -307,7 +326,8 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
                 <span>
                   Research public web sources (optional)
                   <span className="block text-xs text-slate-600">
-                    Kept separate from resume-based findings and clearly labelled.
+                    Kept separate from resume-based findings and clearly labelled. Real web research
+                    is added in a later milestone; for now a demo adapter answers.
                   </span>
                 </span>
               </label>
@@ -335,29 +355,11 @@ export function AnalyzeForm({ jobs }: { jobs: JobSummary[] }) {
               onChange={(key, value) => setWeights((current) => ({ ...current, [key]: value }))}
               onReset={() => setWeights({ ...DEFAULT_WEIGHTS })}
             />
-
-            {SHOW_DEV_TOOLS && (
-              <label className="flex items-center gap-2 text-xs text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={simulateError}
-                  onChange={(event) => setSimulateError(event.target.checked)}
-                />
-                Developer tool: simulate a server error
-              </label>
-            )}
           </div>
         </Card>
       </fieldset>
 
-      {running && (
-        <Card>
-          <CardHeader title="Analyzing…" description="This mirrors the nine steps of the backend workflow." />
-          <div className="px-5 py-5" aria-live="polite">
-            <ProgressSteps currentStep={step} webEnabled={enableWeb && consent} />
-          </div>
-        </Card>
-      )}
+      {running && <WaitingPanel />}
 
       <div className="space-y-2">
         <Button type="submit" disabled={running}>

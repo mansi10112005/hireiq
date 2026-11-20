@@ -1,56 +1,42 @@
-import { ApiError } from "./errors";
-import { MOCK_ANALYSES, MOCK_JOBS } from "./mock-data";
-import { PIPELINE_STEPS } from "./pipeline";
-import type { AnalysisPreview, AnalyzeInput, DashboardData, JobSummary } from "./types";
+import { apiFetch } from "./api";
+import { friendlyError } from "./errors";
+import type {
+  AnalysisReport,
+  AnalysisSummary,
+  DashboardData,
+  JobSummary,
+  Page,
+} from "./types";
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** `demo` comes from the page URL (?demo=empty | error | slow) to show each screen state. */
-export async function getDashboardData(demo?: string): Promise<DashboardData> {
-  await sleep(demo === "slow" ? 2500 : 300);
-
-  if (demo === "error") {
-    throw new ApiError("api_unreachable", "Could not reach the HireIQ API (demo error).", 503);
-  }
-  if (demo === "empty") {
-    return { totalCandidates: 0, totalAnalyses: 0, totalJobs: 0, recent: [] };
-  }
+/** Reads used by the server-rendered pages. */
+export async function getDashboardData(): Promise<DashboardData> {
+  const [analyses, candidates, jobs] = await Promise.all([
+    apiFetch<Page<AnalysisSummary>>("/analyses?limit=5"),
+    apiFetch<Page<unknown>>("/candidates?limit=1"),
+    apiFetch<Page<unknown>>("/jobs?limit=1"),
+  ]);
   return {
-    totalCandidates: 4,
-    totalAnalyses: MOCK_ANALYSES.length,
-    totalJobs: MOCK_JOBS.length,
-    recent: MOCK_ANALYSES,
+    totalCandidates: candidates.total,
+    totalAnalyses: analyses.total,
+    totalJobs: jobs.total,
+    recent: analyses.items,
   };
 }
 
-export async function getSavedJobs(): Promise<JobSummary[]> {
-  await sleep(200);
-  return MOCK_JOBS;
+export async function getAnalysisPage(page: number, pageSize: number): Promise<Page<AnalysisSummary>> {
+  return apiFetch<Page<AnalysisSummary>>(`/analyses?limit=${pageSize}&skip=${(page - 1) * pageSize}`);
 }
 
-/** Pretends to run the nine workflow steps. `onStep` reports which step is running. */
-export async function submitAnalysis(
-  input: AnalyzeInput,
-  onStep: (stepIndex: number) => void,
-): Promise<AnalysisPreview> {
-  const webAllowed = input.enableWebResearch && input.webResearchConsent;
+export async function getAnalysis(id: string): Promise<AnalysisReport> {
+  return apiFetch<AnalysisReport>(`/analyses/${encodeURIComponent(id)}`);
+}
 
-  for (let index = 0; index < PIPELINE_STEPS.length; index++) {
-    const step = PIPELINE_STEPS[index];
-    if (step.optional && !webAllowed) continue; // skipped, like the backend's conditional edge
-    onStep(index);
-    await sleep(450);
-    if (input.simulateError && step.key === "ai_evaluation") {
-      throw new ApiError("ai_provider_unavailable", "The AI provider is unavailable.", 503);
-    }
+/** Saved jobs are optional: if they cannot be loaded, the form still works with pasted text. */
+export async function getSavedJobs(): Promise<{ jobs: JobSummary[]; unavailable: string | null }> {
+  try {
+    const page = await apiFetch<Page<JobSummary>>("/jobs?limit=100");
+    return { jobs: page.items, unavailable: null };
+  } catch (error) {
+    return { jobs: [], unavailable: friendlyError(error) };
   }
-
-  return {
-    analysis_id: "demo-analysis",
-    candidate_name: "Demo Candidate",
-    score: 67,
-    evidence_level: "moderate",
-    stored: input.saveResult,
-    warnings: ["Demo result: no real analysis was run, and this score is not based on your resume."],
-  };
 }
