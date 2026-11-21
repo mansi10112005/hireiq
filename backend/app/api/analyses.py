@@ -2,7 +2,9 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from typing import Literal
+
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import DB_RESPONSES, require_repository
@@ -14,6 +16,7 @@ from app.schemas.common import ErrorResponse
 from app.schemas.records import AnalysisPage
 from app.services.repository import Repository, get_repository
 from app.services.scoring_config import build_scoring_config
+from app.services.report_export import export_report_json, export_report_pdf
 from app.workflows.graph import get_workflow
 from app.workflows.state import AnalysisState
 
@@ -167,3 +170,33 @@ def get_analysis(analysis_id: str, repo: Repository = Depends(require_repository
 )
 def delete_analysis(analysis_id: str, repo: Repository = Depends(require_repository)) -> None:
     repo.delete_analysis(analysis_id)
+
+@router.get(
+    "/{analysis_id}/export",
+    response_class=Response,
+    responses=DB_RESPONSES,
+    summary="Download a saved report as PDF or JSON",
+)
+def export_analysis(
+    analysis_id: str,
+    file_format: Literal["pdf", "json"] = Query("pdf", alias="format"),
+    repo: Repository = Depends(require_repository),
+) -> Response:
+    report = repo.get_analysis(analysis_id)
+
+    if file_format == "json":
+        content, media_type = export_report_json(report), "application/json"
+    else:
+        content, media_type = export_report_pdf(report), "application/pdf"
+
+    # The file name uses only the id (never a person's name): no personal data in headers.
+    filename = f"hireiq-report-{report.analysis_id[:8]}.{file_format}"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",  # reports contain personal data
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

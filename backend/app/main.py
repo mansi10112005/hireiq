@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
-from app.api import analyses, candidates, health, jobs, resumes, scoring
+from app.api import analyses, candidates, comparisons, health, jobs, resumes, scoring
 from app.core.config import get_settings
 from app.core.database import DatabaseUnavailableError, close_client
 from app.core.errors import register_exception_handlers
@@ -64,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(analyses.router, prefix="/api/v1")
     app.include_router(candidates.router, prefix="/api/v1")
     app.include_router(scoring.router, prefix="/api/v1")
+    app.include_router(comparisons.router, prefix="/api/v1")
 
     if settings.app_env == "development":
         from app.api import debug  # temporary, see debug.py

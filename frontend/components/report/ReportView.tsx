@@ -7,6 +7,7 @@ import { EvaluationSection, InterviewQuestions, SummarySection } from "./Narrati
 import { AiAndPipeline, ExternalResearch, JobRequirements, Limitations } from "./MetaSections";
 import { ScoreBreakdown, ScoreCard } from "./ScoreSections";
 import { SkillsSection } from "./SkillsSection";
+import { ExportButtons } from "./ExportButtons";
 
 export function ReportView({ report }: { report: AnalysisReport }) {
   const saved = report.storage.stored;
@@ -28,9 +29,12 @@ export function ReportView({ report }: { report: AnalysisReport }) {
             {report.job_title ?? "Untitled job"} · {formatDateTime(report.created_at)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge tone={saved ? "emerald" : "amber"}>{saved ? "Saved" : "Not saved"}</Badge>
-          <Badge tone={usedAi ? "indigo" : "slate"}>{usedAi ? "AI-assisted" : "Rule-based"}</Badge>
+                <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Badge tone={saved ? "emerald" : "amber"}>{saved ? "Saved" : "Not saved"}</Badge>
+            <Badge tone={usedAi ? "indigo" : "slate"}>{usedAi ? "AI-assisted" : "Rule-based"}</Badge>
+          </div>
+          <ExportButtons report={report} />
         </div>
       </header>
 

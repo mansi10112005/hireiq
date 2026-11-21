@@ -1,0 +1,6 @@
+Alex Doe
+SKILLS
+Python
+EXPERIENCE
+Backend Intern, Example Co, 2024 - 2025
+- Wrote small scripts in Python for data cleanup.

@@ -6,6 +6,7 @@ import { Suspense, useState, type ReactNode } from "react";
 import {
   Briefcase,
   FileText,
+  GitCompare,
   LayoutDashboard,
   Menu,
   Settings,
@@ -26,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/analyze", label: "Analyze Resume", icon: FileText, ready: true },
   { href: "/jobs", label: "Job Descriptions", icon: Briefcase, ready: false },
   { href: "/results", label: "Candidate Results", icon: Users, ready: true },
+  { href: "/compare", label: "Compare Candidates", icon: GitCompare, ready: true },
   { href: "/settings", label: "Settings", icon: Settings, ready: false },
 ];
 
